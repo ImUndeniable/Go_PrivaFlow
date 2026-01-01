@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: privaflow_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: privaflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - privaflow_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: privaflow_cache
+    ports:
+      - "6379:6379"
+    networks:
+      - privaflow_net
+
+volumes:
+  postgres_data:
+
+networks:
+  privaflow_net:
+    driver: bridge
