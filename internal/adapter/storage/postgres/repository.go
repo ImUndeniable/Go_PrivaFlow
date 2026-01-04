@@ -15,5 +15,6 @@ func NewErasureRepository(db *gorm.DB) *ErasureRepository {
 
 // Create is a method attached to the struct
 func (r *ErasureRepository) Create(req *domain.ErasureRequest) error {
+	// 👇 THIS IS THE FINAL DESTINATION 👇
 	return r.db.Create(req).Error
 }

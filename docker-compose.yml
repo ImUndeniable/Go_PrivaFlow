@@ -1,24 +1,56 @@
 version: '3.8'
+
 services:
+  # 1. The Database (Brain)
   postgres:
     image: postgres:16-alpine
     container_name: privaflow_db
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secretpassword
       POSTGRES_DB: privaflow
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - privaflow_net
 
+  # 2. The Cache (Speed)
   redis:
     image: redis:7-alpine
     container_name: privaflow_cache
     ports:
       - "6379:6379"
+    networks:
+      - privaflow_net
+
+  # 3. The Manager (Required for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: privaflow_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - privaflow_net
+
+  # 4. The Messenger (Kafka)
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: privaflow_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # This part is tricky - it tells Kafka how to talk to Docker vs Localhost
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - privaflow_net
 
