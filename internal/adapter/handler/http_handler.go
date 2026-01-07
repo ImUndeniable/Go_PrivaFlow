@@ -31,7 +31,7 @@ func (h *ErasureHandler) RequestErasure(c *gin.Context) {
 
 	req, err := h.svc.RequestErasure(input.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

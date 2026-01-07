@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/broker/kafka"
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/handler"
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/storage/postgres" // Update with your actual module path if different
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/core/domain"
@@ -22,10 +23,13 @@ func main() {
 	// In production, we use tools like 'golang-migrate', but this is fine for now.
 	db.AutoMigrate(&domain.ErasureRequest{})
 
+	producer := kafka.NewEventProducer("localhost:9092", "erasure-requests")
+	defer producer.Close() // Close connection when app stops
+
 	// 3. Initialize Repository (The "Fridge")
 	repo := postgres.NewErasureRepository(db)
 	// The Chef (uses the Fridge)
-	svc := services.NewErasureService(repo)
+	svc := services.NewErasureService(repo, producer)
 	// The Waiter (uses chef)
 	h := handler.NewErasureHandler(svc)
 
@@ -37,5 +41,5 @@ func main() {
 
 	// 6. Start Server
 	log.Println("🚀 PrivaFlow is live on :8080")
-	r.Run(":8080")
+	r.Run(":8081")
 }
