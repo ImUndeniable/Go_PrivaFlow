@@ -18,3 +18,10 @@ func (r *ErasureRepository) Create(req *domain.ErasureRequest) error {
 	// 👇 THIS IS THE FINAL DESTINATION 👇
 	return r.db.Create(req).Error
 }
+
+// UpdateStatus finds a request by Email and updates its status
+func (r *ErasureRepository) UpdateStatus(email string, status string) error {
+	return r.db.Model(&domain.ErasureRequest{}).
+		Where("email = ?", email).
+		Update("status", status).Error
+}
