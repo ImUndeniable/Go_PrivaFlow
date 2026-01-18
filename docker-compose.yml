@@ -1,41 +1,30 @@
-version: '3.8'
-
 services:
-  # 1. The Database (Brain)
-  postgres:
-    image: postgres:16-alpine
-    container_name: privaflow_db
-    ports:
-      - "5432:5432"
+  # 1. The Fridge (Postgres Database)
+  db:
+    image: postgres:15-alpine
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secretpassword
       POSTGRES_DB: privaflow
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - privaflow_net
 
-  # 2. The Cache (Speed)
-  redis:
-    image: redis:7-alpine
-    container_name: privaflow_cache
-    ports:
-      - "6379:6379"
-    networks:
-      - privaflow_net
-
-  # 3. The Manager (Required for Kafka)
+  # 2. Zookeeper (Required for this version of Kafka)
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.0
-    container_name: privaflow_zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
     networks:
       - privaflow_net
 
-  # 4. The Messenger (Kafka)
+  # 3. The Megaphone (Kafka) - Configured for Hybrid Access
   kafka:
     image: confluentinc/cp-kafka:7.3.0
     container_name: privaflow_kafka
@@ -46,11 +35,50 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # This part is tricky - it tells Kafka how to talk to Docker vs Localhost
+      
+      # 👇 THE FIX: Bind to 0.0.0.0 (Listen on all interfaces)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      
+      # Tell clients where to connect (Localhost for you, 'kafka' for Docker)
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - privaflow_net
+
+  # 4. The Manager (Your API)
+  api:
+    build: .
+    container_name: privaflow_api
+    command: ./api_binary
+    restart: on-failure  # 👈 ADD THIS LINE
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=db
+      - KAFKA_BROKER=kafka:29092
+    depends_on:
+      - db
+      - kafka
+    networks:
+      - privaflow_net
+
+  # 5. The Worker (Your Consumer)
+  worker:
+    build: .
+    container_name: privaflow_worker
+    command: ./worker_binary
+    restart: on-failure  # 👈 ADD THIS LINE
+    environment:
+      - DB_HOST=db
+      - KAFKA_BROKER=kafka:29092
+    depends_on:
+      - db
+      - kafka
     networks:
       - privaflow_net
 
@@ -59,4 +87,3 @@ volumes:
 
 networks:
   privaflow_net:
-    driver: bridge
