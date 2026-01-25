@@ -6,6 +6,7 @@ import (
 
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/broker/kafka"
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/handler"
+	middleware "github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/handler/http"
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/storage/postgres" // Update with your actual module path if different
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/core/domain"
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/core/services"
@@ -48,7 +49,22 @@ func main() {
 	r := gin.Default()
 
 	// 5. Route Definition
-	r.POST("/request", h.RequestErasure)
+	//r.POST("/request", h.RequestErasure)
+
+	r.POST("/login", func(c *gin.Context) {
+		token, _ := middleware.GenerateToken("admin@privaflow.com")
+		c.JSON(200, gin.H{
+			"token":   token,
+			"message": "Here is your badge! Use it in the Authorization header.",
+		})
+	})
+
+	protected := r.Group("/")
+	protected.Use(middleware.AuthMiddleware())
+	{
+		// Move your existing handler inside this group
+		protected.POST("/request", h.RequestErasure)
+	}
 
 	// 6. Start Server
 	log.Println("🚀 PrivaFlow is live on :8080")
