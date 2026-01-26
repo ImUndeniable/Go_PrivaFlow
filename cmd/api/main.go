@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/broker/kafka"
-	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/handler"
+	http "github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/handler"
 	middleware "github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/handler/http"
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/adapter/storage/postgres" // Update with your actual module path if different
 	"github.com/ImUndeniable/Go_PrivaFlow/internal/core/domain"
@@ -43,7 +43,8 @@ func main() {
 	// The Chef (uses the Fridge)
 	svc := services.NewErasureService(repo, producer)
 	// The Waiter (uses chef)
-	h := handler.NewErasureHandler(svc)
+	//h := handler.NewErasureHandler(svc)
+	erasureHandler := http.NewErasureHandler(svc)
 
 	// 4. Setup Router
 	r := gin.Default()
@@ -52,7 +53,11 @@ func main() {
 	//r.POST("/request", h.RequestErasure)
 
 	r.POST("/login", func(c *gin.Context) {
-		token, _ := middleware.GenerateToken("admin@privaflow.com")
+		token, err := middleware.GenerateToken("admin@privaflow.com")
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Could not generate token"})
+			return
+		}
 		c.JSON(200, gin.H{
 			"token":   token,
 			"message": "Here is your badge! Use it in the Authorization header.",
@@ -63,10 +68,10 @@ func main() {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		// Move your existing handler inside this group
-		protected.POST("/request", h.RequestErasure)
+		protected.POST("/request", erasureHandler.RequestErasure)
 	}
 
 	// 6. Start Server
-	log.Println("🚀 PrivaFlow is live on :8080")
+	log.Println("🚀 PrivaFlow is live on :8081")
 	r.Run(":8081")
 }
